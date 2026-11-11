@@ -9,6 +9,7 @@ from .inspection import Inspector
 from .processing.campaigns import Campaigns
 from .processing.replay_plan import ReplayPlanner
 from .output.bundles import EvidenceBundles
+from .modeling.service import ModelService
 
 
 class Service:
@@ -24,6 +25,7 @@ class Service:
         self.replay_plans = ReplayPlanner(self.database, self.pipeline, self.catalog)
         self.bundles = EvidenceBundles(self.snapshots, self.campaigns)
         self.inspector = Inspector(self.database)
+        self.models = ModelService(self.database, self.catalog)
 
     def close(self):
         self.database.close()

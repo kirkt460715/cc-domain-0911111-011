@@ -8,6 +8,16 @@ class Inspector:
     def __init__(self, database):
         self.db = database
 
+    def _registry(self):
+        from .calibration.units import Unit, UnitRegistry
+
+        return UnitRegistry(
+            [
+                Unit.parse(strict_json(row["payload"]))
+                for row in self.db.rows("SELECT payload FROM units")
+            ]
+        )
+
     def check(self):
         database = self.db.integrity()
         chain = verify(self.db)
@@ -68,6 +78,38 @@ class Inspector:
         for row in self.db.rows("SELECT * FROM snapshots ORDER BY id"):
             if digest(strict_json(row["payload"])) != row["fingerprint"]:
                 errors.append({"id": row["id"], "code": "snapshot_fingerprint"})
+        for row in self.db.rows(
+            "SELECT id,version,payload,fingerprint FROM measurement_models ORDER BY id,version"
+        ):
+            payload = strict_json(row["payload"])
+            if payload["version"] != row["version"]:
+                errors.append(
+                    {"id": row["id"], "code": "model_version_mismatch"}
+                )
+            from .modeling.models import MeasurementModel
+
+            restored = MeasurementModel.restore(
+                row["payload"], self._registry()
+            )
+            if restored.fingerprint != row["fingerprint"]:
+                errors.append({"id": row["id"], "code": "model_fingerprint"})
+        for row in self.db.rows("SELECT * FROM model_reports ORDER BY id"):
+            payload = strict_json(row["payload"])
+            if payload["fingerprint"] != row["fingerprint"]:
+                errors.append(
+                    {"id": row["id"], "code": "model_report_fingerprint"}
+                )
+            if payload["id"] != row["id"]:
+                errors.append({"id": row["id"], "code": "model_report_id"})
+            if payload["supersedes"] is not None:
+                parent = self.db.one(
+                    "SELECT id FROM model_reports WHERE id=?",
+                    (payload["supersedes"],),
+                )
+                if parent is None:
+                    errors.append(
+                        {"id": row["id"], "code": "model_report_supersede_link"}
+                    )
         for row in self.db.rows("SELECT * FROM sources ORDER BY id"):
             maximum = self.db.one(
                 "SELECT MAX(sequence) AS n FROM observations WHERE source=?",
@@ -130,6 +172,8 @@ class Inspector:
             "replays": ("id",),
             "windows": ("id",),
             "snapshots": ("id",),
+            "measurement_models": ("id", "version"),
+            "model_reports": ("id",),
         }
         for table, keys in tables.items():
             rows = self.db.rows(

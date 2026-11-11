@@ -232,6 +232,8 @@ class Reports:
             "replays",
             "windows",
             "snapshots",
+            "measurement_models",
+            "model_reports",
         )
         counts = {
             table: self.db.one("SELECT COUNT(*) AS n FROM " + table)["n"]

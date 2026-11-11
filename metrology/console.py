@@ -166,6 +166,42 @@ def dispatch(app, request):
         from .processing.crosscheck import PairedChannels
 
         return PairedChannels(app.reports, app.catalog.registry()).compare(**options)
+    if action == "model_register":
+        return app.models.register_model(
+            options["model"], created_at=options["created_at"]
+        )
+    if action == "model":
+        return app.models.model(options["id"], options.get("version"))
+    if action == "models":
+        return {"models": app.models.models()}
+    if action == "model_evaluate":
+        return app.models.evaluate(
+            options["model_id"],
+            options["request"],
+            report_id=options["report_id"],
+            created_at=options["created_at"],
+            version=options.get("version"),
+            supersedes=options.get("supersedes"),
+        )
+    if action == "model_report":
+        return app.models.report(options["id"])
+    if action == "model_reports":
+        return {"reports": app.models.reports(options.get("model_id"))}
+    if action == "model_correction":
+        return app.models.corrected_report(
+            options["model_id"],
+            options["request"],
+            report_id=options["report_id"],
+            supersedes=options["supersedes"],
+            created_at=options["created_at"],
+            version=options.get("version"),
+            reason=options.get("reason"),
+        )
+    if action == "model_certificate_reports":
+        return {
+            "certificate": options["certificate"],
+            "reports": app.models.certificate_reports(options["certificate"]),
+        }
     raise InputError("unknown action", field=action)
 
 
